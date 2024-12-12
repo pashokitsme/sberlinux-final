@@ -4,8 +4,8 @@ use std::str::FromStr;
 
 use clap::*;
 use client::Client;
-use vpn_shared::creds::Credentials;
 use tracing::error;
+use vpn_shared::creds::Credentials;
 
 #[derive(Debug, Parser)]
 #[command(version)]

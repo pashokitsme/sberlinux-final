@@ -2,11 +2,11 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
 
-use serde::Serialize;
 use serde::Deserialize;
+use serde::Serialize;
 
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum Credentials {
   Password(Password),
 }
@@ -15,7 +15,8 @@ impl FromStr for Credentials {
   type Err = anyhow::Error;
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
-    let (username, password) = s.split_once(':').ok_or(anyhow::anyhow!("Invalid auth string: missing colon"))?;
+    let (username, password) =
+      s.split_once(':').ok_or(anyhow::anyhow!("Invalid auth string: missing colon"))?;
     Ok(Self::Password(Password::new(username, password)))
   }
 }
@@ -28,7 +29,7 @@ impl Credentials {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Password {
   username: String,
   password: String,

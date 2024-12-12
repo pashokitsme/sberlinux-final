@@ -1,7 +1,7 @@
 mod config;
+mod handle_packet;
 mod server;
 
-use std::net::UdpSocket;
 use std::time::Duration;
 
 use clap::*;
@@ -10,6 +10,7 @@ use tracing::error;
 #[derive(Debug, Parser)]
 #[command(version)]
 struct Args {
+  /// Path to the configuration file; --config config.yaml
   #[arg(short, long)]
   config: String,
 }
@@ -25,10 +26,13 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
     .build()
     .await?;
 
+  server.run().await?;
+
   Ok(())
 }
 
 fn main() {
+  setup_logging();
   let args = Args::parse();
 
   match real_main(args) {

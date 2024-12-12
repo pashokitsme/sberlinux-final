@@ -12,3 +12,4 @@ anyhow = { version = "^1.0" }
 tracing-subscriber = { version = "^0.3" }
 serde_yml = { version = "^0.0.12" }
 serde = { version = "^1.0", features = ["derive"] }
+bincode = { version = "^1.3" }

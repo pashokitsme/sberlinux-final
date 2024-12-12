@@ -79,3 +79,9 @@ impl ClientBuilder {
     Ok(client)
   }
 }
+
+impl Client {
+  pub fn builder(server_address: Ipv4Addr, server_port: u16) -> ClientBuilder {
+    ClientBuilder::new(server_address, server_port)
+  }
+}

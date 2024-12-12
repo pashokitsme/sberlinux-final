@@ -15,12 +15,8 @@ services:
       context: .
       dockerfile: vpn-client/Dockerfile
     image: vpn-client:latest
-    privileged: true
     cap_add:
       - NET_ADMIN
-      - NET_RAW
-    devices:
-      - /dev/net/tun:/dev/net/tun
     volumes:
       - ./config/client.yml:/etc/vpn/config.yml
     networks:

@@ -5,12 +5,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tokio::net::UdpSocket;
+use vpn_shared::packet::ServerPacket;
 
 use tracing::error;
 use tracing::info;
 
 use vpn_shared::creds::Credentials;
 use vpn_shared::packet::ClientPacket;
+
+use crate::handle_packet::PacketHandler;
 
 pub struct ConnectedClient {
   pub addr: SocketAddr,
@@ -96,7 +99,7 @@ impl Server {
     let cleanup_interval = server.client_timeout / 2;
     tokio::spawn(async move {
       loop {
-        Self::cleanup_inactive_clients(&cleanup_server.clients).await;
+        cleanup_server.cleanup_inactive_clients().await;
         tokio::time::sleep(cleanup_interval).await;
       }
     });
@@ -122,13 +125,19 @@ impl Server {
     }
   }
 
-  async fn cleanup_inactive_clients(clients: &DashMap<SocketAddr, ConnectedClient>) {
-    clients.retain(|_, client| {
-      let is_active = !client.is_expired();
-      if !is_active {
-        info!("Disconnecting stale client {}", client.addr);
+  async fn cleanup_inactive_clients(&self) {
+    let clients_to_remove: Vec<_> =
+      self.clients.iter().filter(|client| client.is_expired()).map(|client| client.addr).collect();
+
+    for addr in clients_to_remove {
+      info!("Disconnecting stale client {}", addr);
+      self.clients.remove(&addr);
+
+      if let Err(e) =
+        self.send_packet(ServerPacket::Disconnect { reason: "Stale connection".into() }, addr).await
+      {
+        error!("Failed to send disconnect packet to {}: {}", addr, e);
       }
-      is_active
-    });
+    }
   }
 }

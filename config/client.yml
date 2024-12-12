@@ -1,16 +1,16 @@
-server-address: '172.20.0.2'
-server-port: 8000
+server-address: '10.0.0.20'
+server-port: 9696
 listen-address: '0.0.0.0'
 listen-port: 6969
 reconnect-interval-secs: 5
 connect-timeout-secs: 10
 credentials:
   type: 'password'
-  username: 'test_user'
-  password: 'test_pass'
+  username: 'user1'
+  password: 'pass1'
 tun:
-  name: 'tun0'
-  address: '10.0.0.2'
+  name: 'utun10'
+  address: '10.0.1.10'
   netmask: '255.255.255.0'
   mtu: 1500
   up: true 

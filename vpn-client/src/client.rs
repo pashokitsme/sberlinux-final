@@ -175,11 +175,11 @@ impl Client {
             ServerPacket::Disconnect { reason } => {
               info!("Disconnected from server: {}", reason);
               return Ok(());
-            },
+            }
             _ => {
               error!("Unexpected packet from server: {:?}", packet);
             }
-          }
+          };
         }
       }
     }
@@ -189,25 +189,35 @@ impl Client {
 
   async fn connect(&self) -> anyhow::Result<()> {
     if let Some(ref credentials) = self.credentials {
-      let auth_packet = ClientPacket::Auth { credentials: credentials.clone() };
+      let auth_packet = ClientPacket::Auth {
+        username: credentials.username().to_string(),
+        password_hashed: credentials.hashed(),
+      };
       let server_addr = SocketAddr::new(self.server_address.into(), self.server_port);
 
-      self.socket.send_to(&bincode::serialize(&auth_packet)?, server_addr).await?;
+      let data = bincode::serialize(&auth_packet)?;
+      self.socket.send_to(&data, server_addr).await?;
 
       let mut buf = vec![0u8; 1024];
       match tokio::time::timeout(self.connect_timeout, self.socket.recv_from(&mut buf)).await {
-        Ok(Ok((len, _))) => match bincode::deserialize::<ServerPacket>(&buf[..len])? {
-          ServerPacket::AuthOk => {
-            info!("Successfully connected to server");
-            Ok(())
-          }
-          ServerPacket::AuthError(msg) => {
-            error!("Authentication failed: {}", msg);
-            Err(anyhow::anyhow!("Authentication failed: {}", msg))
-          }
-          _ => {
-            error!("Unexpected response from server");
-            Err(anyhow::anyhow!("Unexpected response from server"))
+        Ok(Ok((len, _))) => match bincode::deserialize::<ServerPacket>(&buf[..len]) {
+          Ok(packet) => match packet {
+            ServerPacket::AuthOk => {
+              info!("Successfully connected to server");
+              Ok(())
+            }
+            ServerPacket::AuthError(message) => {
+              error!("Authentication failed: {}", message);
+              Err(anyhow::anyhow!("Authentication failed: {}", message))
+            }
+            _ => {
+              error!("Unexpected response from server");
+              Err(anyhow::anyhow!("Unexpected response from server"))
+            }
+          },
+          Err(e) => {
+            error!("Failed to deserialize server response: {}", e);
+            Err(anyhow::anyhow!("Failed to deserialize server response: {}", e))
           }
         },
         Ok(Err(e)) => {

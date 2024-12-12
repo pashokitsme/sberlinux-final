@@ -17,8 +17,12 @@ pub trait PacketHandler {
 impl Server {
   pub async fn handle(&self, packet: ClientPacket, src_addr: SocketAddr) -> Result<()> {
     match packet {
-      ClientPacket::Auth { credentials } => {
-        if !self.client_credentials.contains(&credentials) {
+      ClientPacket::Auth { username, password_hashed } => {
+        if !self
+          .client_credentials
+          .iter()
+          .any(|cred| cred.username() == username && cred.hashed() == password_hashed)
+        {
           debug!("Authentication failed for {}", src_addr);
           self.send_packet(ServerPacket::AuthError("Invalid credentials".into()), src_addr).await?;
           return Ok(());

@@ -1,8 +1,8 @@
 listen-address: '0.0.0.0'
-listen-port: 8000
+listen-port: 9696
 max-clients: 10
 client-timeout-secs: 30
 client-credentials:
   - type: 'password'
-    username: 'test_user'
-    password: 'test_pass' 
+    username: 'user1'
+    password: 'pass1' 

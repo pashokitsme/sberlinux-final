@@ -123,9 +123,7 @@ mod tests {
     assert_eq!(config.server_port, 8000);
     assert_eq!(config.listen_port, 6969);
     assert_eq!(config.reconnect_interval_secs, 5);
-    let Credentials::Password(creds) = config.credentials else {
-      panic!("Invalid credentials type");
-    };
+    let creds = config.credentials;
 
     assert_eq!(creds.hashed(), Credentials::from_str("test_user:test_password").unwrap().hashed());
   }

@@ -143,7 +143,7 @@ impl Client {
               }
             }
             Err(e) => {
-              error!("Error reading from TUN: {}", e);
+              error!("Error reading from tun: {}", e);
               break;
             }
           }
@@ -198,31 +198,16 @@ impl Client {
               info!("Successfully connected to server");
               Ok(())
             }
-            ServerPacket::AuthError(message) => {
-              error!("Authentication failed: {}", message);
-              Err(anyhow::anyhow!("Authentication failed: {}", message))
-            }
-            _ => {
-              error!("Unexpected response from server");
-              Err(anyhow::anyhow!("Unexpected response from server"))
-            }
+            ServerPacket::AuthError(message) => anyhow::bail!("Authentication failed: {}", message),
+            _ => anyhow::bail!("Unexpected response from server"),
           },
-          Err(e) => {
-            error!("Failed to deserialize server response: {}", e);
-            Err(anyhow::anyhow!("Failed to deserialize server response: {}", e))
-          }
+          Err(e) => anyhow::bail!("Failed to deserialize server response: {}", e),
         },
-        Ok(Err(e)) => {
-          error!("Connection error: {}", e);
-          Err(anyhow::anyhow!("Connection error: {}", e))
-        }
-        Err(_) => {
-          error!("Connection timeout");
-          Err(anyhow::anyhow!("Connection timeout"))
-        }
+        Ok(Err(e)) => anyhow::bail!("Connection error: {}", e),
+        Err(_) => anyhow::bail!("Connection timeout"),
       }
     } else {
-      Err(anyhow::anyhow!("No credentials provided"))
+      anyhow::bail!("No credentials provided")
     }
   }
 

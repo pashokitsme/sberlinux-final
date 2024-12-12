@@ -18,7 +18,10 @@ use tracing::error;
 use tracing::info;
 
 use vpn_shared::creds::Credentials;
+use vpn_shared::packet::fill_random_bytes;
 use vpn_shared::packet::EncryptedPacket;
+use vpn_shared::packet::Key;
+use vpn_shared::packet::KEY_SIZE;
 use vpn_shared::packet::{ClientPacket, ServerPacket};
 
 pub struct ClientBuilder {
@@ -97,12 +100,15 @@ impl Client {
   }
 
   pub async fn run(mut self) -> anyhow::Result<()> {
-    info!("Starting VPN client...");
+    info!("Starting client");
 
-    if let Err(e) = self.connect().await {
-      error!("Failed to connect to server: {}", e);
-      return Ok(());
-    }
+    let key = match self.connect().await {
+      Ok(key) => key,
+      Err(e) => {
+        error!("Failed to connect to server: {}", e);
+        return Err(e);
+      }
+    };
 
     let (network_tx, mut network_rx) = mpsc::channel(100);
 
@@ -114,7 +120,7 @@ impl Client {
       loop {
         match socket.recv_from(&mut buf).await {
           Ok((len, _)) => {
-            if let Ok(packet) = bincode::deserialize::<ServerPacket>(&buf[..len]) {
+            if let Ok(packet) = EncryptedPacket::from_bytes(&buf[..len]).and_then(|p| p.decrypt(&key)) {
               if network_tx.send(packet).await.is_err() {
                 break;
               }
@@ -128,33 +134,16 @@ impl Client {
       }
     });
 
-    let mut ping_sent_rx = self.start_ping(server_addr);
+    let mut ping_sent_rx = self.start_ping(key, server_addr);
 
-    let mut tun_buf = vec![0u8; 65536];
     loop {
       tokio::select! {
-        result = self.tun.read(&mut tun_buf) => {
-          match result {
-            Ok(len) => {
-              let packet = ClientPacket::Data(tun_buf[..len].to_vec());
-              if let Ok(data) = bincode::serialize(&packet) {
-                if let Err(e) = self.socket.send_to(&data, server_addr).await {
-                  error!("Failed to send data to server: {}", e);
-                }
-              }
-            }
-            Err(e) => {
-              error!("Error reading from tun: {}", e);
-              break;
-            }
-          }
-        }
+        _ = self.serve_tun(key, server_addr) => {}
         Some(packet) = network_rx.recv() => {
-          // let packet = packet.decrypt();
           match packet {
             ServerPacket::Data(data) => {
               if let Err(e) = self.tun.write(&data).await {
-                error!("Failed to write to TUN: {}", e);
+                error!("Failed to write to tun: {}", e);
               }
             }
             ServerPacket::Error(msg) => {
@@ -177,40 +166,84 @@ impl Client {
         }
       }
     }
+  }
+
+  async fn connect(&mut self) -> anyhow::Result<Key> {
+    let Some(ref credentials) = self.credentials else {
+      anyhow::bail!("No credentials provided");
+    };
+
+    let server_addr = SocketAddr::new(self.server_address.into(), self.server_port);
+
+    let keyexchange_packet = EncryptedPacket::encrypt(&[0u8; KEY_SIZE], &ClientPacket::KeyExchange([0u8; KEY_SIZE]))?;
+
+    self.socket.send_to(&keyexchange_packet.to_bytes(), server_addr).await?;
+
+    info!("Exchanging keys with server...");
+    let mut buf = vec![0u8; 65536];
+
+    let mut session_key = [0u8; KEY_SIZE];
+
+    match tokio::time::timeout(self.connect_timeout, self.socket.recv_from(&mut buf)).await {
+      Ok(Ok((len, _))) => match EncryptedPacket::from_bytes(&buf[..len])?.decrypt(&[0u8; KEY_SIZE])? {
+        ServerPacket::KeyExchange(server_key) => {
+          let mut client_key = [0u8; KEY_SIZE];
+          fill_random_bytes(&mut client_key);
+
+          for i in 0..KEY_SIZE {
+            session_key[i] = client_key[i] ^ server_key[i];
+          }
+          info!("Successfully established secure connection");
+        }
+        _ => {
+          anyhow::bail!("Failed to establish secure connection");
+        }
+      },
+      _ => {
+        anyhow::bail!("Connection handshake timeout");
+      }
+    }
+
+    info!("Authenticating with server...");
+    let packet = EncryptedPacket::encrypt(&session_key, &ClientPacket::Auth(credentials.clone()))?;
+    self.socket.send_to(&packet.to_bytes(), server_addr).await?;
+
+    let mut buf = vec![0u8; 65536];
+
+    match tokio::time::timeout(self.connect_timeout, self.socket.recv_from(&mut buf)).await {
+      Ok(Ok((len, _))) => match bincode::deserialize::<ServerPacket>(&buf[..len])? {
+        ServerPacket::AuthOk => {
+          info!("Authentication successful");
+          Ok(session_key)
+        }
+        ServerPacket::AuthError(message) => anyhow::bail!("Authentication failed: {}", message),
+        _ => anyhow::bail!("Unexpected response from server"),
+      },
+      _ => anyhow::bail!("Connection timeout"),
+    }
+  }
+
+  async fn serve_tun(&mut self, key: Key, server_addr: SocketAddr) -> anyhow::Result<()> {
+    let mut buf = vec![0u8; 65536];
+    match self.tun.read(&mut buf).await {
+      Ok(len) => {
+        let packet = EncryptedPacket::encrypt(&key, &ClientPacket::Data(buf[..len].to_vec()))?;
+        match self.socket.send_to(&packet.to_bytes(), server_addr).await {
+          Ok(_) => info!("Sent tun packet to server; len: {}", len),
+          Err(e) => {
+            error!("Failed to send data to server: {}", e);
+          }
+        }
+      }
+      Err(e) => {
+        anyhow::bail!("Error reading from tun: {}", e);
+      }
+    }
 
     Ok(())
   }
 
-  async fn connect(&self) -> anyhow::Result<()> {
-    if let Some(ref credentials) = self.credentials {
-      let auth_packet = ClientPacket::Auth(credentials.clone());
-      let server_addr = SocketAddr::new(self.server_address.into(), self.server_port);
-
-      let data = bincode::serialize(&auth_packet)?;
-      self.socket.send_to(&data, server_addr).await?;
-
-      let mut buf = vec![0u8; 1024];
-      match tokio::time::timeout(self.connect_timeout, self.socket.recv_from(&mut buf)).await {
-        Ok(Ok((len, _))) => match bincode::deserialize::<ServerPacket>(&buf[..len]) {
-          Ok(packet) => match packet {
-            ServerPacket::AuthOk => {
-              info!("Successfully connected to server");
-              Ok(())
-            }
-            ServerPacket::AuthError(message) => anyhow::bail!("Authentication failed: {}", message),
-            _ => anyhow::bail!("Unexpected response from server"),
-          },
-          Err(e) => anyhow::bail!("Failed to deserialize server response: {}", e),
-        },
-        Ok(Err(e)) => anyhow::bail!("Connection error: {}", e),
-        Err(_) => anyhow::bail!("Connection timeout"),
-      }
-    } else {
-      anyhow::bail!("No credentials provided")
-    }
-  }
-
-  fn start_ping(&self, server_addr: SocketAddr) -> Receiver<()> {
+  fn start_ping(&self, key: Key, server_addr: SocketAddr) -> Receiver<()> {
     let socket = Arc::clone(&self.socket);
     let interval = Duration::from_secs(5);
 
@@ -218,15 +251,18 @@ impl Client {
 
     tokio::spawn(async move {
       loop {
-        let packet = EncryptedPacket::encrypt(&[], &ClientPacket::Ping);
-        let ping = ClientPacket::Ping;
-        if let Ok(data) = bincode::serialize(&ping) {
-          if let Err(e) = socket.send_to(&data, server_addr).await {
-            error!("Failed to send ping: {}", e);
-            break;
+        match EncryptedPacket::encrypt(&key, &ClientPacket::Ping) {
+          Ok(packet) => {
+            if let Err(err) = socket.send_to(&packet.to_bytes(), server_addr).await {
+              error!("Failed to send ping: {}", err);
+            }
+            tx.send(()).await.unwrap();
           }
-          tx.send(()).await.unwrap();
+          Err(e) => {
+            error!("Failed to encrypt ping packet: {}", e);
+          }
         }
+
         sleep(interval).await;
       }
     });

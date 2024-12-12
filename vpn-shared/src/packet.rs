@@ -13,6 +13,8 @@ pub const NONCE_SIZE: usize = 12;
 pub const KEY_SIZE: usize = 32;
 pub const TAG_SIZE: usize = 16;
 
+pub type Key = [u8; KEY_SIZE];
+
 #[derive(Debug)]
 pub struct EncryptedPacket {
   nonce: [u8; NONCE_SIZE],
@@ -21,7 +23,7 @@ pub struct EncryptedPacket {
 }
 
 impl EncryptedPacket {
-  pub fn encrypt<P: Serialize>(key: &[u8; KEY_SIZE], packet: &P) -> anyhow::Result<Self> {
+  pub fn encrypt<P: Serialize>(key: &Key, packet: &P) -> anyhow::Result<Self> {
     let packet = bincode::serialize(packet)?;
     let cipher = ChaCha20Poly1305::new(key.into());
 
@@ -38,7 +40,7 @@ impl EncryptedPacket {
     Ok(Self { nonce, data: ciphertext[..tag_start].to_vec(), tag })
   }
 
-  pub fn decrypt<P: for<'de> Deserialize<'de>>(&self, key: &[u8; KEY_SIZE]) -> anyhow::Result<P> {
+  pub fn decrypt<P: for<'de> Deserialize<'de>>(&self, key: &Key) -> anyhow::Result<P> {
     let cipher = ChaCha20Poly1305::new(key.into());
 
     let mut ciphertext = self.data.clone();
@@ -76,10 +78,15 @@ impl EncryptedPacket {
   }
 }
 
+pub fn fill_random_bytes(bytes: &mut [u8]) {
+  rand::thread_rng().fill_bytes(bytes);
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[non_exhaustive]
 pub enum ClientPacket {
   Auth(Credentials),
+  KeyExchange(Key),
   Data(Vec<u8>),
   Ping,
   Disconnect,
@@ -90,6 +97,7 @@ pub enum ClientPacket {
 pub enum ServerPacket {
   AuthOk,
   AuthError(String),
+  KeyExchange([u8; KEY_SIZE]),
   Data(Vec<u8>),
   Error(String),
   Pong,

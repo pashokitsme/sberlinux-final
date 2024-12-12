@@ -5,13 +5,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tokio::net::UdpSocket;
+use vpn_shared::packet::EncryptedPacket;
+use vpn_shared::packet::Key;
 use vpn_shared::packet::ServerPacket;
+use vpn_shared::packet::KEY_SIZE;
 
 use tracing::error;
 use tracing::info;
 
 use vpn_shared::creds::Credentials;
-use vpn_shared::packet::ClientPacket;
 
 use crate::handle_packet::PacketHandler;
 
@@ -19,11 +21,12 @@ pub struct ConnectedClient {
   pub addr: SocketAddr,
   pub last_seen: Instant,
   pub timeout: Duration,
+  pub key: Key,
 }
 
 impl ConnectedClient {
-  pub fn new(addr: SocketAddr, timeout: Duration) -> Self {
-    Self { addr, last_seen: Instant::now(), timeout }
+  pub fn new(key: Key, addr: SocketAddr, timeout: Duration) -> Self {
+    Self { addr, last_seen: Instant::now(), timeout, key }
   }
 
   pub fn is_expired(&self) -> bool {
@@ -109,7 +112,10 @@ impl Server {
     loop {
       let (len, src_addr) = server.socket.recv_from(&mut buf).await?;
 
-      match bincode::deserialize::<ClientPacket>(&buf[..len]) {
+      let packet = EncryptedPacket::from_bytes(&buf[..len])?;
+      let key = server.clients.get(&src_addr).map(|c| c.key).unwrap_or([0u8; KEY_SIZE]);
+
+      match packet.decrypt(&key) {
         Ok(packet) => {
           let server = server.clone();
           tokio::spawn(async move {
@@ -119,7 +125,7 @@ impl Server {
           });
         }
         Err(e) => {
-          error!("Error deserializing packet from {}: {}", src_addr, e);
+          error!("Error decrypting/deserializing packet from {}: {}", src_addr, e);
         }
       }
     }
@@ -135,6 +141,10 @@ impl Server {
     client.last_seen = Instant::now();
 
     Ok(())
+  }
+
+  pub fn get_client_key(&self, src_addr: SocketAddr) -> Key {
+    self.clients.get(&src_addr).map(|c| c.key).unwrap_or([0u8; KEY_SIZE])
   }
 
   async fn cleanup_inactive_clients(&self) {

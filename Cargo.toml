@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["vpn-client", "vpn-server"]
+members = ["vpn-client", "vpn-server", "vpn-shared"]
 
 [workspace.dependencies]
 clap = { version = "^4.5.0", features = ["derive"] }
@@ -10,3 +10,5 @@ xxhash-rust = { version = "^0.8", features = ["xxh64"] }
 tracing = { version = "^0.1" }
 anyhow = { version = "^1.0" }
 tracing-subscriber = { version = "^0.3" }
+serde_yml = { version = "^0.0.12" }
+serde = { version = "^1.0", features = ["derive"] }

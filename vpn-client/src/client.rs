@@ -2,16 +2,7 @@ use std::net::Ipv4Addr;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 
-use crate::creds::Credentials;
-// use ring::digest;
-// use serde::{Serialize, Deserialize};
-
-// #[derive(Serialize, Deserialize)]
-enum Packet {
-  Auth { username: String, password_hash: Vec<u8> },
-  Data(Vec<u8>),
-  Ping,
-}
+use vpn_shared::creds::Credentials;
 
 pub struct Password {
   username: String,

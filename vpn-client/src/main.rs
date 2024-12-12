@@ -1,11 +1,10 @@
 mod client;
-mod creds;
 
 use std::str::FromStr;
 
 use clap::*;
 use client::Client;
-use creds::Credentials;
+use vpn_shared::creds::Credentials;
 use tracing::error;
 
 #[derive(Debug, Parser)]

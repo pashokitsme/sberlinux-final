@@ -2,7 +2,11 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
 
+use serde::Serialize;
+use serde::Deserialize;
+
 #[non_exhaustive]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Credentials {
   Password(Password),
 }
@@ -24,6 +28,7 @@ impl Credentials {
   }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Password {
   username: String,
   password: String,

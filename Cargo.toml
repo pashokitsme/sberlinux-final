@@ -1,0 +1,2 @@
+[workspace]
+members = ["vpn-client", "vpn-server"]

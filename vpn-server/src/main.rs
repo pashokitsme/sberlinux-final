@@ -33,9 +33,8 @@ fn main() {
   setup_logging();
   let args = Args::parse();
 
-  match real_main(args) {
-    Ok(_) => (),
-    Err(e) => error!("{}", e),
+  if let Err(e) = real_main(args) {
+    error!("{}", e);
   }
 }
 

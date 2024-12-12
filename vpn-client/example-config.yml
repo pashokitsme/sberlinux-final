@@ -1,27 +1,25 @@
-# Пример конфигурационного файла VPN клиента
-
 # Настройки подключения к серверу
-server_address: '192.168.1.100' # IP-адрес VPN сервера
-server_port: 8000 # Порт VPN сервера
+server-address: '0.0.0.0' # IP-адрес VPN сервера
+server-port: 9696 # Порт VPN сервера
 
 # Локальные настройки
-listen_address: '0.0.0.0' # Адрес для прослушивания
-listen_port: 6969 # Локальный порт
+listen-address: '0.0.0.0' # Адрес для прослушивания
+listen-port: 6969 # Локальный порт
 
 # Таймауты и интервалы
-reconnect_interval_secs: 5 # Интервал переподключения в секундах
-connect_timeout_secs: 10 # Таймаут подключения в секундах
+reconnect-interval-secs: 5 # Интервал переподключения в секундах
+connect-timeout-secs: 10 # Таймаут подключения в секундах
 
 # Учетные данные
 credentials:
-  username: 'your_username' # Имя пользователя
-  password: 'your_password' # Пароль
+  type: 'password'
+  username: 'user1' # Имя пользователя
+  password: 'pass1' # Пароль
 
 # Настройки TUN интерфейса
 tun:
-  name: 'tun0' # Имя интерфейса
-  address: '10.0.0.2' # IP-адрес интерфейса
+  name: 'utun10' # Имя интерфейса
+  address: '10.0.1.10' # IP-адрес интерфейса
   netmask: '255.255.255.0' # Маска подсети
   mtu: 1500 # MTU
   up: true # Поднимать интерфейс автоматически
-  persist: false # Сохранять интерфейс после завершения программы

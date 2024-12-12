@@ -19,6 +19,10 @@ pub struct ServerConfig {
 
 impl ServerConfig {
   pub fn from_file<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
+    if !path.as_ref().exists() {
+      anyhow::bail!("Configuration file not found: {}", path.as_ref().display());
+    }
+
     let contents = std::fs::read_to_string(path)?;
     let config = serde_yml::from_str(&contents)?;
     Ok(config)
@@ -31,8 +35,8 @@ impl ServerConfig {
 
 #[cfg(test)]
 mod tests {
-  use std::str::FromStr;
   use super::*;
+  use std::str::FromStr;
 
   #[test]
   fn test_parse_full_config() {

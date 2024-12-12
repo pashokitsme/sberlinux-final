@@ -32,8 +32,13 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
 
 fn main() {
   let args = Args::parse();
+  setup_logging();
 
   if let Err(e) = real_main(args) {
     error!("{}", e);
   }
+}
+
+fn setup_logging() {
+  tracing_subscriber::fmt().init();
 }

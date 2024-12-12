@@ -18,6 +18,7 @@ use tracing::error;
 use tracing::info;
 
 use vpn_shared::creds::Credentials;
+use vpn_shared::packet::EncryptedPacket;
 use vpn_shared::packet::{ClientPacket, ServerPacket};
 
 pub struct ClientBuilder {
@@ -149,6 +150,7 @@ impl Client {
           }
         }
         Some(packet) = network_rx.recv() => {
+          // let packet = packet.decrypt();
           match packet {
             ServerPacket::Data(data) => {
               if let Err(e) = self.tun.write(&data).await {
@@ -181,10 +183,7 @@ impl Client {
 
   async fn connect(&self) -> anyhow::Result<()> {
     if let Some(ref credentials) = self.credentials {
-      let auth_packet = ClientPacket::Auth {
-        username: credentials.username().to_string(),
-        password_hashed: credentials.hashed(),
-      };
+      let auth_packet = ClientPacket::Auth(credentials.clone());
       let server_addr = SocketAddr::new(self.server_address.into(), self.server_port);
 
       let data = bincode::serialize(&auth_packet)?;
@@ -219,6 +218,7 @@ impl Client {
 
     tokio::spawn(async move {
       loop {
+        let packet = EncryptedPacket::encrypt(&[], &ClientPacket::Ping);
         let ping = ClientPacket::Ping;
         if let Ok(data) = bincode::serialize(&ping) {
           if let Err(e) = socket.send_to(&data, server_addr).await {

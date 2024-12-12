@@ -1,5 +1,3 @@
-use std::hash::Hash;
-use std::hash::Hasher;
 use std::str::FromStr;
 
 use serde::Deserialize;
@@ -29,18 +27,5 @@ impl Credentials {
 
   pub fn username(&self) -> &str {
     &self.username
-  }
-
-  pub fn hashed(&self) -> Vec<u8> {
-    let mut hasher = xxhash_rust::xxh64::Xxh64::new(0);
-    self.hash(&mut hasher);
-    hasher.digest().to_le_bytes().to_vec()
-  }
-}
-
-impl Hash for Credentials {
-  fn hash<H: Hasher>(&self, state: &mut H) {
-    self.username.hash(state);
-    self.password.hash(state);
   }
 }

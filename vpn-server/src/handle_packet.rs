@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::net::SocketAddr;
 use tracing::warn;
+use vpn_shared::creds::Credentials;
 
 use tracing::error;
 use tracing::info;
@@ -12,8 +13,7 @@ use crate::server::Server;
 
 pub trait PacketHandler {
   async fn send_packet(&self, packet: ServerPacket, addr: SocketAddr) -> Result<()>;
-  async fn handle_auth(&self, username: String, password_hashed: Vec<u8>, src_addr: SocketAddr)
-    -> Result<()>;
+  async fn handle_auth(&self, credentials: Credentials, src_addr: SocketAddr) -> Result<()>;
   async fn handle_data(&self, payload: Vec<u8>, src_addr: SocketAddr) -> Result<()>;
   async fn handle_ping(&self, src_addr: SocketAddr) -> Result<()>;
   async fn handle_disconnect(&self, src_addr: SocketAddr) -> Result<()>;
@@ -22,9 +22,7 @@ pub trait PacketHandler {
 impl Server {
   pub async fn handle(&self, packet: ClientPacket, src_addr: SocketAddr) -> Result<()> {
     match packet {
-      ClientPacket::Auth { username, password_hashed } => {
-        self.handle_auth(username, password_hashed, src_addr).await?
-      }
+      ClientPacket::Auth(credentials) => self.handle_auth(credentials, src_addr).await?,
       ClientPacket::Data(payload) => self.handle_data(payload, src_addr).await?,
       ClientPacket::Ping => self.handle_ping(src_addr).await?,
       ClientPacket::Disconnect => self.handle_disconnect(src_addr).await?,
@@ -39,17 +37,8 @@ impl Server {
 }
 
 impl PacketHandler for Server {
-  async fn handle_auth(
-    &self,
-    username: String,
-    password_hashed: Vec<u8>,
-    src_addr: SocketAddr,
-  ) -> Result<()> {
-    if !self
-      .client_credentials
-      .iter()
-      .any(|cred| cred.username() == username && cred.hashed() == password_hashed)
-    {
+  async fn handle_auth(&self, credentials: Credentials, src_addr: SocketAddr) -> Result<()> {
+    if !self.client_credentials.contains(&credentials) {
       info!("Authentication failed for {}", src_addr);
       self.send_packet(ServerPacket::AuthError("Invalid credentials".into()), src_addr).await?;
       return Ok(());

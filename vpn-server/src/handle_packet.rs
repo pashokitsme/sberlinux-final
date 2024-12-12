@@ -15,6 +15,7 @@ use vpn_shared::packet::{ClientPacket, ServerPacket};
 use crate::server::ConnectedClient;
 use crate::server::Server;
 
+#[allow(async_fn_in_trait)]
 pub trait PacketHandler {
   async fn send_packet(&self, packet: ServerPacket, addr: SocketAddr) -> Result<()>;
   async fn send_unencrypted_packet(&self, packet: ServerPacket, addr: SocketAddr) -> Result<()>;

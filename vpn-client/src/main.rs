@@ -1,8 +1,6 @@
 use clap::Parser;
 use tracing::error;
-
-mod client;
-mod config;
+use vpn_client::{Client, ClientConfig};
 
 #[derive(Debug, Parser)]
 #[command(version)]
@@ -14,9 +12,9 @@ struct Args {
 
 #[tokio::main]
 async fn real_main(args: Args) -> anyhow::Result<()> {
-  let config = config::ClientConfig::from_file(&args.config)?;
+  let config = ClientConfig::from_file(&args.config)?;
 
-  let client = client::Client::builder(config.server_address, config.server_port)
+  let client = Client::builder(config.server_address, config.server_port)
     .with_listen_address(config.listen_address, config.listen_port)
     .with_connect_timeout(config.connect_timeout())
     .with_tun_config(config.tun_config())

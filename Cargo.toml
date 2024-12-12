@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["vpn-client", "vpn-server", "vpn-shared"]
+members = [ "tests","vpn-client", "vpn-server", "vpn-shared"]
 
 [workspace.dependencies]
 clap = { version = "^4.5.0", features = ["derive"] }

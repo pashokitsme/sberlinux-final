@@ -3,6 +3,8 @@ name = "vpn-client"
 version = "0.0.0"
 edition = "2021"
 
+[lib]
+
 [dependencies]
 clap = { workspace = true }
 tokio = { workspace = true }

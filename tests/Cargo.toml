@@ -1,0 +1,15 @@
+[package]
+name = "vpn-tests"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+
+[dev-dependencies]
+tokio = { workspace = true }
+vpn-client = { path = "../vpn-client" }
+vpn-server = { path = "../vpn-server" }
+vpn-shared = { path = "../vpn-shared" }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

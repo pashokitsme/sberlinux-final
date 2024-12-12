@@ -3,6 +3,8 @@ name = "vpn-server"
 version = "0.0.0"
 edition = "2021"
 
+[lib]
+
 [dependencies]
 clap = { workspace = true }
 anyhow = { workspace = true }

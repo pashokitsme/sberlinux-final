@@ -12,3 +12,5 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 vpn-shared = { path = "../vpn-shared" }
 bincode = { workspace = true }
+serde = { workspace = true }
+serde_yml = { workspace = true }

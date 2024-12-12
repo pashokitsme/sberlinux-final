@@ -1,6 +1,5 @@
 use anyhow::Result;
 use std::net::SocketAddr;
-use tokio::net::UdpSocket;
 
 use tracing::debug;
 use tracing::error;
@@ -75,7 +74,8 @@ impl Server {
 
 impl PacketHandler for Server {
   async fn send_packet(&self, packet: ServerPacket, addr: SocketAddr) -> Result<()> {
-    self.socket.send_to(&bincode::serialize(&packet)?, addr).await?;
+    _ = tokio::time::timeout(self.client_timeout, self.socket.send_to(&bincode::serialize(&packet)?, addr))
+      .await?;
     Ok(())
   }
 }

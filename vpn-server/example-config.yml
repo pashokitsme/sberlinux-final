@@ -1,0 +1,16 @@
+# Настройки сервера
+listen_address: '0.0.0.0' # Адрес для прослушивания
+listen_port: 8000 # Порт для прослушивания
+
+# Ограничения клиентов
+max_clients: 10 # Максимальное количество одновременных подключений
+client_timeout_secs: 30 # Таймаут неактивности клиента в секундах
+
+# Разрешенные клиенты
+client_credentials:
+  - type: 'password'
+    username: 'user1'
+    password: 'pass1'
+  - type: 'password'
+    username: 'user2'
+    password: 'pass2'

@@ -6,7 +6,8 @@ use serde::Deserialize;
 use serde::Serialize;
 
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[serde(tag = "type")]
 pub enum Credentials {
   Password(Password),
 }
@@ -29,7 +30,7 @@ impl Credentials {
   }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Password {
   username: String,
   password: String,

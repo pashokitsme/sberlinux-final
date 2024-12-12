@@ -9,8 +9,6 @@ use tokio::net::UdpSocket;
 use tracing::error;
 use tracing::info;
 
-use crate::handle_packet::PacketHandler;
-
 use vpn_shared::creds::Credentials;
 use vpn_shared::packet::ClientPacket;
 
@@ -92,12 +90,13 @@ impl Server {
   pub async fn run(self) -> anyhow::Result<()> {
     info!("Starting server on {}:{}", self.listen_address, self.listen_port);
 
-    let clients = self.clients.clone();
-    let cleanup_interval = self.client_timeout / 2;
+    let server = Arc::new(self);
 
+    let cleanup_server = server.clone();
+    let cleanup_interval = server.client_timeout / 2;
     tokio::spawn(async move {
       loop {
-        Self::cleanup_inactive_clients(&clients).await;
+        Self::cleanup_inactive_clients(&cleanup_server.clients).await;
         tokio::time::sleep(cleanup_interval).await;
       }
     });
@@ -105,19 +104,19 @@ impl Server {
     let mut buf = vec![0u8; 65536];
 
     loop {
-      match self.socket.recv_from(&mut buf).await {
-        Ok((len, src_addr)) => match bincode::deserialize::<ClientPacket>(&buf[..len]) {
-          Ok(packet) => {
-            if let Err(e) = self.handle(packet, src_addr).await {
+      let (len, src_addr) = server.socket.recv_from(&mut buf).await?;
+
+      match bincode::deserialize::<ClientPacket>(&buf[..len]) {
+        Ok(packet) => {
+          let server = server.clone();
+          tokio::spawn(async move {
+            if let Err(e) = server.handle(packet, src_addr).await {
               error!("Error handling packet from {}: {}", src_addr, e);
             }
-          }
-          Err(e) => {
-            error!("Error deserializing packet from {}: {}", src_addr, e);
-          }
-        },
+          });
+        }
         Err(e) => {
-          error!("Error receiving packet: {}", e);
+          error!("Error deserializing packet from {}: {}", src_addr, e);
         }
       }
     }
@@ -127,7 +126,7 @@ impl Server {
     clients.retain(|_, client| {
       let is_active = !client.is_expired();
       if !is_active {
-        info!("Removing inactive client {}", client.addr);
+        info!("Disconnecting stale client {}", client.addr);
       }
       is_active
     });

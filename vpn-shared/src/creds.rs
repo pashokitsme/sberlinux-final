@@ -8,6 +8,7 @@ use serde::Serialize;
 #[non_exhaustive]
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[serde(tag = "type")]
+#[serde(rename_all = "kebab-case")]
 pub enum Credentials {
   Password(Password),
 }
@@ -31,6 +32,7 @@ impl Credentials {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
 pub struct Password {
   username: String,
   password: String,

@@ -6,6 +6,7 @@ use serde::Deserialize;
 use vpn_shared::creds::Credentials;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct ServerConfig {
   pub listen_address: Ipv4Addr,
   pub listen_port: u16,
@@ -30,17 +31,17 @@ impl ServerConfig {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
   use std::str::FromStr;
+  use super::*;
 
   #[test]
   fn test_parse_full_config() {
     let config_str = r#"
-            listen_address: "0.0.0.0"
-            listen_port: 8000
-            max_clients: 10
-            client_timeout_secs: 30
-            client_credentials:
+            listen-address: "0.0.0.0"
+            listen-port: 8000
+            max-clients: 10
+            client-timeout-secs: 30
+            client-credentials:
               - type: "password"
                 username: "user1"
                 password: "pass1"
@@ -66,11 +67,11 @@ mod tests {
   #[test]
   fn test_empty_credentials() {
     let config_str = r#"
-            listen_address: "0.0.0.0"
-            listen_port: 8000
-            max_clients: 10
-            client_timeout_secs: 30
-            client_credentials: []
+            listen-address: "0.0.0.0"
+            listen-port: 8000
+            max-clients: 10
+            client-timeout-secs: 30
+            client-credentials: []
         "#;
 
     let config: ServerConfig = serde_yml::from_str(config_str).unwrap();

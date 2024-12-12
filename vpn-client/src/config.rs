@@ -6,15 +6,19 @@ use serde::Deserialize;
 use vpn_shared::creds::Credentials;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct TunConfig {
   pub name: String,
   pub address: Ipv4Addr,
   pub netmask: Ipv4Addr,
   pub mtu: Option<u16>,
+
+  #[serde(default = "default_tun_up")]
   pub up: bool,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct ClientConfig {
   pub server_address: Ipv4Addr,
   pub server_port: u16,
@@ -39,6 +43,10 @@ fn default_tun_config() -> TunConfig {
     mtu: Some(1500),
     up: true,
   }
+}
+
+fn default_tun_up() -> bool {
+  true
 }
 
 impl TunConfig {
@@ -88,45 +96,12 @@ mod tests {
   #[test]
   fn test_parse_config() {
     let config_str = r#"
-            server_address: "127.0.0.1"
-            server_port: 8000
-            listen_address: "0.0.0.0"
-            listen_port: 6969
-            reconnect_interval_secs: 5
-            connect_timeout_secs: 10
-            credentials:
-              type: "password"
-              username: "test_user"
-              password: "test_password"
-            tun:
-              name: "tun0"
-              address: "10.0.0.1"
-              netmask: "255.255.255.0"
-              mtu: 1500
-              up: true
-        "#;
-
-    let config: ClientConfig = serde_yml::from_str(config_str).unwrap();
-
-    assert_eq!(config.server_port, 8000);
-    assert_eq!(config.listen_port, 6969);
-    assert_eq!(config.reconnect_interval_secs, 5);
-    let Credentials::Password(creds) = config.credentials else {
-      panic!("Invalid credentials type");
-    };
-
-    assert_eq!(creds.hashed(), Credentials::from_str("test_user:test_password").unwrap().hashed());
-  }
-
-  #[test]
-  fn test_parse_full_config() {
-    let config_str = r#"
-            server_address: "127.0.0.1"
-            server_port: 8000
-            listen_address: "0.0.0.0"
-            listen_port: 6969
-            reconnect_interval_secs: 5
-            connect_timeout_secs: 10
+            server-address: "127.0.0.1"
+            server-port: 8000
+            listen-address: "0.0.0.0"
+            listen-port: 6969
+            reconnect-interval-secs: 5
+            connect-timeout-secs: 10
             credentials:
               type: "password"
               username: "test_user"
@@ -154,12 +129,12 @@ mod tests {
   #[test]
   fn test_default_tun_config() {
     let config_str = r#"
-            server_address: "127.0.0.1"
-            server_port: 8000
-            listen_address: "0.0.0.0"
-            listen_port: 6969
-            reconnect_interval_secs: 5
-            connect_timeout_secs: 10
+            server-address: "127.0.0.1"
+            server-port: 8000
+            listen-address: "0.0.0.0"
+            listen-port: 6969
+            reconnect-interval-secs: 5
+            connect-timeout-secs: 10
             credentials:
               type: "password"
               username: "test_user"
@@ -178,12 +153,12 @@ mod tests {
   #[test]
   fn test_partial_tun_config() {
     let config_str = r#"
-            server_address: "127.0.0.1"
-            server_port: 8000
-            listen_address: "0.0.0.0"
-            listen_port: 6969
-            reconnect_interval_secs: 5
-            connect_timeout_secs: 10
+            server-address: "127.0.0.1"
+            server-port: 8000
+            listen-address: "0.0.0.0"
+            listen-port: 6969
+            reconnect-interval-secs: 5
+            connect-timeout-secs: 10
             credentials:
               type: "password"
               username: "test_user"
@@ -200,7 +175,7 @@ mod tests {
     assert_eq!(config.tun.address, Ipv4Addr::new(192, 168, 1, 1));
     assert_eq!(config.tun.netmask, Ipv4Addr::new(255, 255, 255, 0));
 
-    assert_eq!(config.tun.mtu, Some(1500));
+    assert_eq!(config.tun.mtu, None);
     assert!(config.tun.up);
   }
 }

@@ -125,6 +125,18 @@ impl Server {
     }
   }
 
+  pub async fn assert_auth(&self, src_addr: SocketAddr) -> anyhow::Result<()> {
+    if !self.clients.contains_key(&src_addr) {
+      self.send_packet(ServerPacket::AuthError("Invalid credentials".into()), src_addr).await?;
+      anyhow::bail!("Invalid credentials for {}", src_addr);
+    }
+
+    let mut client = self.clients.get_mut(&src_addr).unwrap();
+    client.last_seen = Instant::now();
+
+    Ok(())
+  }
+
   async fn cleanup_inactive_clients(&self) {
     let clients_to_remove: Vec<_> =
       self.clients.iter().filter(|client| client.is_expired()).map(|client| client.addr).collect();

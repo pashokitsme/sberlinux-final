@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::net::SocketAddr;
+use tracing::warn;
 
-use tracing::debug;
 use tracing::error;
 use tracing::info;
 
@@ -50,7 +50,7 @@ impl PacketHandler for Server {
       .iter()
       .any(|cred| cred.username() == username && cred.hashed() == password_hashed)
     {
-      debug!("Authentication failed for {}", src_addr);
+      info!("Authentication failed for {}", src_addr);
       self.send_packet(ServerPacket::AuthError("Invalid credentials".into()), src_addr).await?;
       return Ok(());
     }
@@ -69,10 +69,7 @@ impl PacketHandler for Server {
   }
 
   async fn handle_data(&self, payload: Vec<u8>, src_addr: SocketAddr) -> Result<()> {
-    if !self.clients.contains_key(&src_addr) {
-      self.send_packet(ServerPacket::Error("Not authenticated".into()), src_addr).await?;
-      return Ok(());
-    }
+    self.assert_auth(src_addr).await?;
 
     if let Some(mut client) = self.clients.get_mut(&src_addr) {
       client.last_seen = std::time::Instant::now();
@@ -85,20 +82,19 @@ impl PacketHandler for Server {
   }
 
   async fn handle_ping(&self, src_addr: SocketAddr) -> Result<()> {
-    if let Some(mut client) = self.clients.get_mut(&src_addr) {
-      client.last_seen = std::time::Instant::now();
-      self.send_packet(ServerPacket::Pong, src_addr).await?;
-    }
-
+    self.assert_auth(src_addr).await?;
+    self.send_packet(ServerPacket::Pong, src_addr).await?;
     Ok(())
   }
 
   async fn handle_disconnect(&self, src_addr: SocketAddr) -> Result<()> {
     if self.clients.remove(&src_addr).is_some() {
       info!("Client {} disconnected", src_addr);
+    } else {
+      warn!("Client {} wasn't connected; ignoring disconnect", src_addr);
     }
 
-    todo!()
+    Ok(())
   }
 
   async fn send_packet(&self, packet: ServerPacket, addr: SocketAddr) -> Result<()> {

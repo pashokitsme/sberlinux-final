@@ -1,2 +1,12 @@
 [workspace]
+resolver = "2"
 members = ["vpn-client", "vpn-server"]
+
+[workspace.dependencies]
+clap = { version = "^4.5.0", features = ["derive"] }
+tokio = { version = "^1.42", features = ["full"] }
+tun = { version = "^0.7", features = ["async"] }
+xxhash-rust = { version = "^0.8", features = ["xxh64"] }
+tracing = { version = "^0.1" }
+anyhow = { version = "^1.0" }
+tracing-subscriber = { version = "^0.3" }

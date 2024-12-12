@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+clap = { workspace = true }
+tokio = { workspace = true }
+tun = { workspace = true }
+xxhash-rust = { workspace = true, features = ["xxh64"] }
+anyhow = { workspace = true }

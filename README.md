@@ -22,4 +22,4 @@
  - `cargo run -- --config example-config.yml` - запуск сервера
 
 Запуск в докере:
- - `docker compose up`
+ - `docker compose up` (Но увы, чё-то с ним не то :()

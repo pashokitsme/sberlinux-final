@@ -26,7 +26,6 @@ pub struct ClientConfig {
   pub listen_address: Ipv4Addr,
   pub listen_port: u16,
 
-  pub reconnect_interval_secs: u64,
   pub connect_timeout_secs: u64,
 
   pub credentials: Credentials,
@@ -78,10 +77,6 @@ impl ClientConfig {
     Ok(config)
   }
 
-  pub fn reconnect_interval(&self) -> Duration {
-    Duration::from_secs(self.reconnect_interval_secs)
-  }
-
   pub fn connect_timeout(&self) -> Duration {
     Duration::from_secs(self.connect_timeout_secs)
   }
@@ -104,7 +99,6 @@ mod tests {
             server-port: 8000
             listen-address: "0.0.0.0"
             listen-port: 6969
-            reconnect-interval-secs: 5
             connect-timeout-secs: 10
             credentials:
               type: "password"
@@ -122,7 +116,6 @@ mod tests {
 
     assert_eq!(config.server_port, 8000);
     assert_eq!(config.listen_port, 6969);
-    assert_eq!(config.reconnect_interval_secs, 5);
     let creds = config.credentials;
 
     assert_eq!(creds.hashed(), Credentials::from_str("test_user:test_password").unwrap().hashed());
@@ -159,7 +152,6 @@ mod tests {
             server-port: 8000
             listen-address: "0.0.0.0"
             listen-port: 6969
-            reconnect-interval-secs: 5
             connect-timeout-secs: 10
             credentials:
               type: "password"

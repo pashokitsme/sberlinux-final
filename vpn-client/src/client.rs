@@ -7,11 +7,13 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::Receiver;
 use tokio::time::sleep;
+
+use tokio::time::Instant;
 
 use tun::AsyncDevice;
 
-use tracing::debug;
 use tracing::error;
 use tracing::info;
 
@@ -23,7 +25,6 @@ pub struct ClientBuilder {
   server_port: u16,
   listen_address: Ipv4Addr,
   listen_port: u16,
-  reconnect_interval: Option<Duration>,
   connect_timeout: Option<Duration>,
   credentials: Option<Credentials>,
   tun_config: Option<tun::Configuration>,
@@ -33,10 +34,11 @@ pub struct Client {
   socket: Arc<UdpSocket>,
   server_address: Ipv4Addr,
   server_port: u16,
-  reconnect_interval: Duration,
   connect_timeout: Duration,
   credentials: Option<Credentials>,
   tun: AsyncDevice,
+
+  last_ping_sent: Instant,
 }
 
 impl ClientBuilder {
@@ -46,7 +48,6 @@ impl ClientBuilder {
       server_port,
       listen_address: Ipv4Addr::new(0, 0, 0, 0),
       listen_port: 6969,
-      reconnect_interval: None,
       connect_timeout: None,
       credentials: None,
       tun_config: None,
@@ -63,12 +64,6 @@ impl ClientBuilder {
     self.credentials = Some(credentials);
     self
   }
-
-  pub fn with_reconnect_interval(mut self, reconnect_interval: Duration) -> Self {
-    self.reconnect_interval = Some(reconnect_interval);
-    self
-  }
-
   pub fn with_connect_timeout(mut self, connect_timeout: Duration) -> Self {
     self.connect_timeout = Some(connect_timeout);
     self
@@ -87,10 +82,10 @@ impl ClientBuilder {
       socket,
       server_address: self.server_address,
       server_port: self.server_port,
-      reconnect_interval: self.reconnect_interval.unwrap_or(Duration::from_secs(5)),
       connect_timeout: self.connect_timeout.unwrap_or(Duration::from_secs(10)),
       credentials: self.credentials,
       tun,
+      last_ping_sent: Instant::now(),
     })
   }
 }
@@ -132,6 +127,8 @@ impl Client {
       }
     });
 
+    let mut ping_sent_rx = self.start_ping(server_addr);
+
     let mut tun_buf = vec![0u8; 65536];
     loop {
       tokio::select! {
@@ -158,19 +155,11 @@ impl Client {
                 error!("Failed to write to TUN: {}", e);
               }
             }
-            ServerPacket::AuthOk => {
-              info!("Successfully authenticated with server");
-              self.start_ping(server_addr);
-            }
-            ServerPacket::AuthError(msg) => {
-              error!("Authentication failed: {}", msg);
-              return Ok(());
-            }
             ServerPacket::Error(msg) => {
               error!("Server error: {}", msg);
             }
             ServerPacket::Pong => {
-              debug!("Received pong from server");
+              info!("Ping latency: {:?}", Instant::now().duration_since(self.last_ping_sent));
             }
             ServerPacket::Disconnect { reason } => {
               info!("Disconnected from server: {}", reason);
@@ -180,6 +169,9 @@ impl Client {
               error!("Unexpected packet from server: {:?}", packet);
             }
           };
+        }
+        Some(_) = ping_sent_rx.recv() => {
+          self.last_ping_sent = Instant::now();
         }
       }
     }
@@ -234,9 +226,11 @@ impl Client {
     }
   }
 
-  fn start_ping(&self, server_addr: SocketAddr) {
+  fn start_ping(&self, server_addr: SocketAddr) -> Receiver<()> {
     let socket = Arc::clone(&self.socket);
-    let interval = self.reconnect_interval;
+    let interval = Duration::from_secs(5);
+
+    let (tx, rx) = mpsc::channel(1);
 
     tokio::spawn(async move {
       loop {
@@ -246,9 +240,12 @@ impl Client {
             error!("Failed to send ping: {}", e);
             break;
           }
+          tx.send(()).await.unwrap();
         }
         sleep(interval).await;
       }
     });
+
+    rx
   }
 }

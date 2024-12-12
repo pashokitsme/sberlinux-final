@@ -2,7 +2,6 @@ server-address: '172.20.0.2'
 server-port: 8000
 listen-address: '0.0.0.0'
 listen-port: 6969
-reconnect-interval-secs: 5
 connect-timeout-secs: 10
 credentials:
   type: 'password'

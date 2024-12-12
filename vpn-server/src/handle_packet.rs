@@ -83,6 +83,7 @@ impl PacketHandler for Server {
 
   async fn handle_ping(&self, src_addr: SocketAddr) -> Result<()> {
     self.assert_auth(src_addr).await?;
+    info!("Received ping from client {}; sending pong", src_addr);
     self.send_packet(ServerPacket::Pong, src_addr).await?;
     Ok(())
   }

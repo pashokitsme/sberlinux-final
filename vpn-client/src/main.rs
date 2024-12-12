@@ -18,7 +18,6 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
 
   let client = client::Client::builder(config.server_address, config.server_port)
     .with_listen_address(config.listen_address, config.listen_port)
-    .with_reconnect_interval(config.reconnect_interval())
     .with_connect_timeout(config.connect_timeout())
     .with_tun_config(config.tun_config())
     .with_creds(config.credentials)

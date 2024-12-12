@@ -175,25 +175,25 @@ impl Client {
 
     let server_addr = SocketAddr::new(self.server_address.into(), self.server_port);
 
-    let keyexchange_packet = EncryptedPacket::encrypt(&[0u8; KEY_SIZE], &ClientPacket::KeyExchange([0u8; KEY_SIZE]))?;
+    let mut session_key = [0u8; KEY_SIZE];
+    fill_random_bytes(&mut session_key);
+
+    let keyexchange_packet =
+      EncryptedPacket::encrypt(&[0u8; KEY_SIZE], &ClientPacket::KeyExchange(session_key))?;
 
     self.socket.send_to(&keyexchange_packet.to_bytes(), server_addr).await?;
 
-    info!("Exchanging keys with server...");
+    info!("Waiting for key exchange...");
     let mut buf = vec![0u8; 65536];
-
-    let mut session_key = [0u8; KEY_SIZE];
 
     match tokio::time::timeout(self.connect_timeout, self.socket.recv_from(&mut buf)).await {
       Ok(Ok((len, _))) => match EncryptedPacket::from_bytes(&buf[..len])?.decrypt(&[0u8; KEY_SIZE])? {
         ServerPacket::KeyExchange(server_key) => {
-          let mut client_key = [0u8; KEY_SIZE];
-          fill_random_bytes(&mut client_key);
-
           for i in 0..KEY_SIZE {
-            session_key[i] = client_key[i] ^ server_key[i];
+            session_key[i] ^= server_key[i];
           }
-          info!("Successfully established secure connection");
+
+          info!("Successfully established secure connection; Authenticating...");
         }
         _ => {
           anyhow::bail!("Failed to establish secure connection");
@@ -204,14 +204,13 @@ impl Client {
       }
     }
 
-    info!("Authenticating with server...");
     let packet = EncryptedPacket::encrypt(&session_key, &ClientPacket::Auth(credentials.clone()))?;
     self.socket.send_to(&packet.to_bytes(), server_addr).await?;
 
     let mut buf = vec![0u8; 65536];
 
     match tokio::time::timeout(self.connect_timeout, self.socket.recv_from(&mut buf)).await {
-      Ok(Ok((len, _))) => match bincode::deserialize::<ServerPacket>(&buf[..len])? {
+      Ok(Ok((len, _))) => match EncryptedPacket::from_bytes(&buf[..len])?.decrypt(&session_key)? {
         ServerPacket::AuthOk => {
           info!("Authentication successful");
           Ok(session_key)

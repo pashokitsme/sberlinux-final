@@ -113,9 +113,8 @@ impl Server {
       let (len, src_addr) = server.socket.recv_from(&mut buf).await?;
 
       let packet = EncryptedPacket::from_bytes(&buf[..len])?;
-      let key = server.clients.get(&src_addr).map(|c| c.key).unwrap_or([0u8; KEY_SIZE]);
 
-      match packet.decrypt(&key) {
+      match packet.decrypt(&server.get_client_key(src_addr)) {
         Ok(packet) => {
           let server = server.clone();
           tokio::spawn(async move {
